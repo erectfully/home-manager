@@ -56,7 +56,7 @@
       # work.
       less
       rustup
-      # zig
+      zig
       nodejs_latest
       pnpm
       bun
@@ -67,6 +67,31 @@
       age
       age-plugin-ledger
       age-plugin-fido2-hmac
+
+      # OCaml Development
+      ocaml
+      ocamlPackages.dune_3
+      ocamlPackages.findlib
+      ocamlPackages.ocaml-lsp
+      ocamlPackages.utop
+      ocamlPackages.odoc
+      ocamlPackages.ocamlformat
+      ocamlPackages.merlin
+      ocamlPackages.core
+      ocamlPackages.core_unix
+      ocamlPackages.batteries
+      ocamlPackages.ppxlib
+      ocamlPackages.js_of_ocaml
+      ocamlPackages.js_of_ocaml-compiler
+      ocamlPackages.lwt
+      ocamlPackages.lwt_ppx
+      ocamlPackages.yojson
+      ocamlPackages.reason
+      nodejs_latest # For running JavaScript output from Melange/ReScript
+      opam # For managing OCaml environments and installing additional packages
+      # Note: To install Melange or ReScript, use:
+      # opam install melange
+      # npm install rescript
 
       # TUIs
       lazyjj
@@ -116,21 +141,24 @@
       # Monospace Fonts
       commit-mono
       jetbrains-mono
+      cargo-autoinherit
       monaspace
-      _3270font
-      _0xproto
       departure-mono
-
       dejavu_fonts
       powerline-fonts
       yt-dlp
       cargo-binstall
-      purescript
-      purescript-psa
       git-credential-manager
       spago
+      ocaml
+      ocaml-top
+      ocaml_make
+      ocamlformat
+      reason
+      opam
     ]
-    ++ (with nodePackages; [pnpm])
+    ++ (with nodePackages; [pnpm reason])
+    ++ (with ocamlPackages; [ocaml-lsp merlin reason ocaml melange])
     ++ (
       if pkgs.stdenv.isDarwin
       then (with pkgs.darwin.apple_sdk.frameworks; [CoreServices Foundation Security])
@@ -140,7 +168,6 @@
   home.file = {
     "${config.xdg.configHome}/ghostty/config".source = ../../dotfiles/ghostly.toml;
     ".cargo/config.toml".source = ../../dotfiles/cargo.toml;
-    "${config.xdg.configHome}/starship.toml".source = ../../dotfiles/starship.toml;
   };
 
   programs = {
@@ -159,6 +186,9 @@
       envExtra = ''
         eval "$(mise activate zsh)"
         export PATH="/opt/homebrew/opt/rustup/bin:$PATH"
+
+        # OCaml OPAM configuration
+        test -r $HOME/.opam/opam-init/init.zsh && . $HOME/.opam/opam-init/init.zsh > /dev/null 2> /dev/null || true
       '';
     };
 
@@ -171,6 +201,18 @@
         def la  [...args] { ls -a  ...(if $args == [] {["."]} else {$args}) | sort-by type name -i }
         def ll  [...args] { ls -l  ...(if $args == [] {["."]} else {$args}) | sort-by type name -i }
         def l   [...args] { ls     ...(if $args == [] {["."]} else {$args}) | sort-by type name -i }
+
+        # OCaml aliases
+        def ocfmt [...args] { ocamlformat ...$args }
+        def dune-build [...args] { dune build ...$args }
+        def dune-test [...args] { dune test ...$args }
+        def dune-exec [prog ...args] { dune exec $prog -- ...$args }
+        def dune-clean [] { dune clean }
+        def mel-build [...args] { npx melange build ...$args }
+        def mel-run [] { node _build/default/src/main.js }
+        def res-build [...args] { npx rescript build ...$args }
+        def res-start [] { npx rescript build -w }
+        def res-clean [] { npx rescript clean }
 
         # Completions
         # mainly pieced together from https://www.nushell.sh/cookbook/external_completers.html
@@ -246,8 +288,20 @@
           prepend /home/keinsell/.apps |
           prepend /home/keinsell/.local/bin |
           prepend /home/keinsell/.cargo/bin |
+          prepend /home/keinsell/.opam/default/bin |
           append /usr/bin/env
         )
+
+        # OCaml environment setup
+        if (which opam | is-empty) == false {
+          # Initialize OPAM environment variables
+          let opam_env = (opam env --set-switch | lines | parse "{name}={value}" | where name != "" | reduce -f {} {|it, acc| $acc | insert $it.name $it.value})
+
+          # Set OCaml environment variables
+          $env.OCAML_TOPLEVEL_PATH = ($opam_env | get -i OCAML_TOPLEVEL_PATH)
+          $env.CAML_LD_LIBRARY_PATH = ($opam_env | get -i CAML_LD_LIBRARY_PATH)
+          $env.OPAM_SWITCH_PREFIX = ($opam_env | get -i OPAM_SWITCH_PREFIX)
+        }
 
         $env.STARSHIP_SHELL = "nu"
 
@@ -369,25 +423,25 @@
       extraConfig = {
         init.defaultBranch = "trunk";
         credential = {
-          # https://github.com/git-ecosystem/git-credential-manager
-          helper = "${pkgs.git-credential-manager}/bin/git-credential-manager";
-
-          # Keychain is not a problem with macOS, but with linux
-          # i currently have trouble with storage of credentials
-          # as gpg/pass is not initialized and linux do not have
-          # gui - secretservice will not be available.
+          # For macOS: Use Git Credential Manager with keychain storage
+          # For Linux: Use 'store' first (plain text file), then 'cache' (in-memory)
           # https://git-scm.com/book/en/v2/Git-Tools-Credential-Storage
           # https://git-scm.com/docs/git-credential-store
-          # https://github.com/git-ecosystem/git-credential-manager/blob/main/docs/credstores.md
+          helper =
+            if pkgs.stdenv.isDarwin
+            then [
+              "${pkgs.git-credential-manager}/bin/git-credential-manager"
+            ]
+            else [
+              "store" # Plain text storage
+              "cache --timeout=604800" # In-memory cache with 7-day timeout
+            ];
+
+          # For macOS only - used with Git Credential Manager
           credentialStore =
             if pkgs.stdenv.isDarwin
             then "keychain"
-            else "cache";
-
-          # ! Also change this when store will be fixed.
-          cacheOptions = {
-            timeout = 604800;
-          };
+            else "";
         };
 
         filter.lfs.clean = "${pkgs.git-lfs}/bin/git-lfs clean -- %f";
@@ -533,6 +587,23 @@
           nixd = {
             command = lib.getExe pkgs.nixd;
           };
+          ocamllsp = {
+            command = lib.getExe pkgs.ocamlPackages.ocaml-lsp;
+          };
+          
+          rescriptranger = {
+            command = "npx";
+            args = ["@rescript/language-server" "--stdio"];
+            config = {
+              extensionConfiguration = {
+                rescript = {
+                  languageServer = {
+                    arguments = ["--node-runtime" "node"];
+                  };
+                };
+              };
+            };
+          };
         };
 
         language = [
@@ -541,6 +612,29 @@
             auto-format = true;
             language-servers = ["nil" "nixd"];
             formatter.command = lib.getExe pkgs.alejandra;
+          }
+          {
+            name = "ocaml";
+            auto-format = true;
+            language-servers = ["ocamllsp"];
+            formatter = {
+              command = lib.getExe pkgs.ocamlPackages.ocamlformat;
+              args = ["--name" "$FILE" "-"];
+            };
+          }
+          {
+            name = "reason";
+            auto-format = true;
+            language-servers = ["ocamllsp"];
+          }
+          {
+            name = "rescript";
+            auto-format = true;
+            language-servers = ["rescriptranger"];
+            formatter = {
+              command = "rescript";
+              args = ["format"];
+            };
           }
         ];
       };
@@ -552,6 +646,7 @@
         nixd
         biome
         rust-analyzer-unwrapped
+        ocamlPackages.ocaml-lsp
       ];
     };
   };
@@ -574,5 +669,17 @@
   home.shellAliases = {
     zj = "zellij";
     lg = "lazygit";
+
+    # OCaml aliases
+    ocfmt = "ocamlformat";
+    dune-build = "dune build";
+    dune-test = "dune test";
+    dune-exec = "dune exec";
+    dune-clean = "dune clean";
+    mel-build = "npx melange build";
+    mel-run = "node _build/default/src/main.js";
+    res-build = "npx rescript build";
+    res-start = "npx rescript build -w";
+    res-clean = "npx rescript clean";
   };
 }
