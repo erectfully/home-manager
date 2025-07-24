@@ -56,7 +56,6 @@
       # work.
       less
       rustup
-      zig
       nodejs_latest
       pnpm
       bun
@@ -67,31 +66,7 @@
       age
       age-plugin-ledger
       age-plugin-fido2-hmac
-
-      # OCaml Development
-      ocaml
-      ocamlPackages.dune_3
-      ocamlPackages.findlib
-      ocamlPackages.ocaml-lsp
-      ocamlPackages.utop
-      ocamlPackages.odoc
-      ocamlPackages.ocamlformat
-      ocamlPackages.merlin
-      ocamlPackages.core
-      ocamlPackages.core_unix
-      ocamlPackages.batteries
-      ocamlPackages.ppxlib
-      ocamlPackages.js_of_ocaml
-      ocamlPackages.js_of_ocaml-compiler
-      ocamlPackages.lwt
-      ocamlPackages.lwt_ppx
-      ocamlPackages.yojson
-      ocamlPackages.reason
-      nodejs_latest # For running JavaScript output from Melange/ReScript
-      opam # For managing OCaml environments and installing additional packages
-      # Note: To install Melange or ReScript, use:
-      # opam install melange
-      # npm install rescript
+      nodejs_latest
 
       # TUIs
       lazyjj
@@ -150,17 +125,14 @@
       cargo-binstall
       git-credential-manager
       spago
-      ocaml
-      ocaml-top
-      ocaml_make
-      ocamlformat
-      reason
-      opam
     ]
+    # --- Node.js & TypeScript ---
     ++ (with nodePackages; [pnpm reason])
+    # --- OCaml ---
     ++ (with ocamlPackages; [ocaml-lsp merlin reason ocaml melange])
-    # Tools for Haskell
-    ++ [ghc haskell-language-server stack cabal-cli zlib cabal-install hpack]
+    # --- Haskell ---
+    ++ [ghc haskell-language-server stack cabal-install zlib hpack ihp-new]
+    # --- MacOS ---
     ++ (
       if pkgs.stdenv.isDarwin
       then (with pkgs.darwin.apple_sdk.frameworks; [CoreServices Foundation Security])
@@ -182,7 +154,7 @@
     browserpass.enable = true;
 
     zsh = {
-      enable = true;
+      enable = false;
       autosuggestion.enable = true;
       syntaxHighlighting.enable = true;
       envExtra = ''
@@ -592,20 +564,6 @@
           ocamllsp = {
             command = lib.getExe pkgs.ocamlPackages.ocaml-lsp;
           };
-
-          rescriptranger = {
-            command = "npx";
-            args = ["@rescript/language-server" "--stdio"];
-            config = {
-              extensionConfiguration = {
-                rescript = {
-                  languageServer = {
-                    arguments = ["--node-runtime" "node"];
-                  };
-                };
-              };
-            };
-          };
         };
 
         language = [
@@ -628,15 +586,6 @@
             name = "reason";
             auto-format = true;
             language-servers = ["ocamllsp"];
-          }
-          {
-            name = "rescript";
-            auto-format = true;
-            language-servers = ["rescriptranger"];
-            formatter = {
-              command = "rescript";
-              args = ["format"];
-            };
           }
         ];
       };
