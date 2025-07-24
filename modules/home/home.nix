@@ -159,6 +159,8 @@
     ]
     ++ (with nodePackages; [pnpm reason])
     ++ (with ocamlPackages; [ocaml-lsp merlin reason ocaml melange])
+    # Tools for Haskell
+    ++ [ghc haskell-language-server stack cabal-cli zlib cabal-install hpack]
     ++ (
       if pkgs.stdenv.isDarwin
       then (with pkgs.darwin.apple_sdk.frameworks; [CoreServices Foundation Security])
@@ -590,7 +592,7 @@
           ocamllsp = {
             command = lib.getExe pkgs.ocamlPackages.ocaml-lsp;
           };
-          
+
           rescriptranger = {
             command = "npx";
             args = ["@rescript/language-server" "--stdio"];
