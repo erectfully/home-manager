@@ -573,20 +573,6 @@
             language-servers = ["nil" "nixd"];
             formatter.command = lib.getExe pkgs.alejandra;
           }
-          {
-            name = "ocaml";
-            auto-format = true;
-            language-servers = ["ocamllsp"];
-            formatter = {
-              command = lib.getExe pkgs.ocamlPackages.ocamlformat;
-              args = ["--name" "$FILE" "-"];
-            };
-          }
-          {
-            name = "reason";
-            auto-format = true;
-            language-servers = ["ocamllsp"];
-          }
         ];
       };
 
