@@ -129,9 +129,9 @@
     # --- Node.js & TypeScript ---
     ++ (with nodePackages; [pnpm reason])
     # --- OCaml ---
-    ++ (with ocamlPackages; [ocaml-lsp merlin reason ocaml melange])
+    # ++ (with ocamlPackages; [ocaml-lsp merlin reason ocaml melange])
     # --- Haskell ---
-    ++ [ghc haskell-language-server stack cabal-install zlib hpack ihp-new]
+    # ++ []
     # --- MacOS ---
     ++ (
       if pkgs.stdenv.isDarwin
